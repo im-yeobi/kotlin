@@ -1,5 +1,6 @@
 package com.example.kotlinstudy
 
+import com.example.kotlinstudy.week01.strings.lastChar
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -21,8 +22,8 @@ internal class Week01 {
         fun provideWhenArray(): Stream<Arguments> {
             return Stream.of(
                 Arguments.of(setOf(1, 4, 5), true),
-                Arguments.of( setOf(2, 3, 4), true),
-                Arguments.of( setOf(2, 4, 5), false),
+                Arguments.of(setOf(2, 3, 4), true),
+                Arguments.of(setOf(2, 4, 5), false),
                 Arguments.of(setOf(1), false)
             )
         }
@@ -32,12 +33,16 @@ internal class Week01 {
     @ParameterizedTest
     @MethodSource("provideWhenArray")
     @DisplayName("{1,4,5}, {2,3,4}의 array가 넘어온 경우 true 그외 false")
-    internal fun `when에 복수개의 값을 넣었을 때 해당 when이 정상적으로 동작되게 구현하기`(given: Set<Int>, expect: Boolean) {
+    fun `when에 복수개의 값을 넣었을 때 해당 when이 정상적으로 동작되게 구현하기`(given: Set<Int>, expect: Boolean) {
         val actual = when (given) {
-
             else -> false
         }
 
         assertThat(actual).isEqualTo(expect)
+    }
+
+    @Test
+    fun `String의 마지막 Char를 uppercase 해주는 확장함수 구현하기`() {
+        assertThat("Test".lastChar()).isEqualTo('T')
     }
 }

@@ -186,5 +186,170 @@ else if (e is String){
 - 코틀린에서는 unchecked exception, checked exception을 구분하지 않는다.
 - 따라서 `throws`를 사용하지 않아도, cache에 checked exception을 명시하지 않아도 된다.
 - `try`도, `if`, `when`과 마찬가지로 expression이다.
+
 ## 과제 설명
 - when에 인자가 복수개로 전달되는 경우에 해당 조건에 맞게 테스트 코드 작성하기
+
+# 3장
+
+## 컬렋션
+- java의 컬렉션을 그대로 사용하고, 추가 기능을 제공한다.
+- 그대로 사용하는 이유는 자바 코드와 상호작용하기 위해서
+
+### 디폴트 파라미터
+
+```kotlin
+fun <T> joinToString(
+    collection: Collection<T>,
+    separator: String = ", ",
+    prefix: String = "",
+    postfix: String = ""
+)
+```
+- 디폴트 파라미터를 이용하면, 함수 오버로딩을 줄일 수 있다.
+- `@JvmOverloads`를 추가하면 코틀린 컴파일러가 자동으로 모든 오버라딩 함수를 만들어 준다.
+- Java에서는 디폴트 파라미터를 지원하지 않기때문에 `@JvmOverloads`를 추가하지 않으면 에러 발생
+
+```kotlin
+@JvmOverloads
+   public static final void joinToString(@NotNull Collection collection, @NotNull String separator, @NotNull String prefix, @NotNull String postfix) {
+      Intrinsics.checkNotNullParameter(collection, "collection");
+      Intrinsics.checkNotNullParameter(separator, "separator");
+      Intrinsics.checkNotNullParameter(prefix, "prefix");
+      Intrinsics.checkNotNullParameter(postfix, "postfix");
+   }
+
+   // $FF: synthetic method
+   public static void joinToString$default(Collection var0, String var1, String var2, String var3, int var4, Object var5) {
+      if ((var4 & 2) != 0) {
+         var1 = ", ";
+      }
+
+      if ((var4 & 4) != 0) {
+         var2 = "";
+      }
+
+      if ((var4 & 8) != 0) {
+         var3 = "";
+      }
+
+      joinToString(var0, var1, var2, var3);
+   }
+
+   @JvmOverloads
+   public static final void joinToString(@NotNull Collection collection, @NotNull String separator, @NotNull String prefix) {
+      joinToString$default(collection, separator, prefix, (String)null, 8, (Object)null);
+   }
+
+   @JvmOverloads
+   public static final void joinToString(@NotNull Collection collection, @NotNull String separator) {
+      joinToString$default(collection, separator, (String)null, (String)null, 12, (Object)null);
+   }
+
+   @JvmOverloads
+   public static final void joinToString(@NotNull Collection collection) {
+      joinToString$default(collection, (String)null, (String)null, (String)null, 14, (Object)null);
+   }
+```
+
+### 최상위 함수
+```java
+import static com.example.kotlinstudy.week01.strings.JoinKt.joinToString;
+
+public class JavaClazz {
+    public static void test() {
+        joinToString(List.of());
+    }
+}
+```
+- 코틀린에서는 class를 생성하지 않고도 함수를 정의해서 사용 가능
+- Java에서 코틀린 최상위 함수를 사용하려고 하면, {코틀린 파일}Kt.{method}로 사용해야 한다 
+- `@JvmName`을 사용하면 자동으로 생성되는 Kt 파일의 이름을 변경 가능하다.
+
+### 확장 함수
+
+```kotlin
+fun String.lastChar(): Char = this[this.length - 1]
+fun String.lastChar(): Char = get(length -1)
+```
+- `String`을 수신 객체 타입이라 부르고, `this`를 호출되는 대상을 수신 객체라고 한다.
+
+```java
+char c = StringUtilKt.lastChar("Java")
+```  
+- java에서도 사용 가능하나, 코틀린이 생성해준 class에 static method를 호출해서 사용해야 한다.
+
+```kotlin
+open class View {
+}
+
+class Button: View() {
+
+}
+
+fun View.showOff() = println("I'm a View!")
+fun Button.showOff() = println("I'm a Button!")
+
+fun main() {
+    val view: View = Button()
+    view.showOff()
+}
+```
+```java
+public static final void showOff(@NotNull View $this$showOff) {
+      Intrinsics.checkNotNullParameter($this$showOff, "$this$showOff");
+      String var1 = "I'm a View!";
+      boolean var2 = false;
+      System.out.println(var1);
+   }
+
+   public static final void showOff(@NotNull Button $this$showOff) {
+      Intrinsics.checkNotNullParameter($this$showOff, "$this$showOff");
+      String var1 = "I'm a Button!";
+      boolean var2 = false;
+      System.out.println(var1);
+   }
+
+   public static final void main() {
+      View view = (View)(new Button());
+      showOff(view);
+   }
+```
+- 확장함수의 경우 오버라이딩 되지 않으니 주의가 필요
+- 확장함수는 컴파일되면 정적 메소드로 변경되고 정적 메소드의 파라미터의 값에 따라서 값이 결정되기 때문
+- 해당 class에 확장함수와 멤버 함수가 존재한다면 멤버 함수가 확장 함수보다 호출 우선순위가 높다.
+
+### 가변인자
+```kotlin
+fun varargTest(vararg nums: Int): Int {
+    return nums.sum()
+}
+
+fun main() {
+    println(varargTest(1,2,3,4,5))
+
+    val args = arrayOf<String>("1", "2", "3")
+    val list = listOf("args: ", *args)
+    println(list)
+}
+```
+- Java에서는 `...`을 사용했지만 코틀린에서는 `vararg`를 사용한다.
+- array로 된 값을 vararg에 전달하기 위해서는 `*`을 이용해서 전달해야 한다.
+
+### 중위 호출
+```kotlin
+infix fun Any.to(other:Any) = Pair(this, other)
+```
+- 인자가 하나뿐인 일반 메소드나 인자가 하나뿐인 확장 함수에서 사용 가능
+
+### 3중 따옴표
+```kotlin
+val regex = """(.+)/(.+)\.(.+)""".toRegex()
+val kotlinKogo = """|  //
+                    | //
+                    |/ \"""
+```
+- 정규표현식에서 문자 이스케이프 할 필요없이 작성 가능
+- 줄바꿈을 표현하느 문자열에서 이스케이프 할 필요 없음
+## 과제
+- String의 마지막 char 값을 uppercase 해주는 `lastUpperCase()` 구현하기
