@@ -4,12 +4,14 @@ import com.example.kotlinstudy.week01.strings.lastChar
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 
-internal class Week01 {
+class Week01 {
 
     @Test
     fun `문자열 템플릿 사용시에 한글 문제 확인`() {
@@ -44,5 +46,17 @@ internal class Week01 {
     @Test
     fun `String의 마지막 Char를 uppercase 해주는 확장함수 구현하기`() {
         assertThat("Test".lastChar()).isEqualTo('T')
+    }
+
+    class ValidationClass(val num: Int) {
+
+    }
+
+    @Test
+    @DisplayName("숫자가 100보다 큰 경우 에러가 발생")
+    fun `초기화 블록을 이용해서 error가 발생되는지 확인`() {
+        assertDoesNotThrow { ValidationClass(100) }
+        assertThrows<RuntimeException> { ValidationClass(101) }
+
     }
 }
