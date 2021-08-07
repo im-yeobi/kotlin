@@ -37,17 +37,22 @@ class Week01 {
     @DisplayName("{1,4,5}, {2,3,4}의 array가 넘어온 경우 true 그외 false")
     fun `when에 복수개의 값을 넣었을 때 해당 when이 정상적으로 동작되게 구현하기`(given: Set<Int>, expect: Boolean) {
         val actual = when (given) {
-            setOf(1,4,5) -> true
-            setOf(2,3,4) -> true
+            setOf(1, 4, 5) -> true
+            setOf(2, 3, 4) -> true
             else -> false
         }
 
         assertThat(actual).isEqualTo(expect)
     }
 
+    fun String.makeLastCharUppercase() : String {
+        return this.substring(0, length - 1) + this[length - 1].uppercase()
+    }
+
     @Test
     fun `String의 마지막 Char를 uppercase 해주는 확장함수 구현하기`() {
-        assertThat("Test".lastChar()).isEqualTo('T')
+        assertThat("Test".makeLastCharUppercase()).isEqualTo("TesT")
+        assertThat("Test".makeLastCharUppercase().lastChar()).isEqualTo('T')
     }
 
     class ValidationClass(val num: Int) {
@@ -63,6 +68,5 @@ class Week01 {
     fun `초기화 블록을 이용해서 error가 발생되는지 확인`() {
         assertDoesNotThrow { ValidationClass(100) }
         assertThrows<RuntimeException> { ValidationClass(101) }
-
     }
 }
