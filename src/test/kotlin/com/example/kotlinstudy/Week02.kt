@@ -34,7 +34,45 @@ class Week02 {
 
     }
 
+    @Test
+    @DisplayName("나이를 나누기 4한 값이 같은 사람들끼리 한 조기 되었다. 사람들을 데리고 조를 만들어라. 그리고 각 조에 대해서 이 사람들이 핸드폰을 가지고 있는지 검사를 해라. \n" +
+            "만약 핸드폰이 없다면 <no-phone>이라고 출력하고 핸드폰이 있다면 번호를 출력하라. ")
+    fun test02() {
+        val personList = (10..40).map { i ->
+            Person(
+                    // 나이 % 4 == 0 인 사람은 없다.
+                    if (i % 4 == 0) i + 1 else i,
+                    if (i % 4 == 2) null else "010-123-456")
+        }
+
+        // FIXME : personList를 이용해 나이를 나누기 4한 값이 같은 사람들끼리 한조로 만들어라. personMap의 type 은 변경해도 된다.
+        val personMap: Map<Int, List<Person>> = mapOf(1 to listOf(), 2 to listOf())
+
+        assert(personMap.size == 3)
+        assert(personMap[0] == null)
+
+        
+        personMap.flatMap { it.value }
+                .forEach {
+                    if (it.age % 4 == 2)
+                        assert(it.toPhoneNumber().equals("no-phone"))
+                    else
+                        assert(it.toPhoneNumber().equals("010-123-456"))
+                }
+    }
+
+    // FIXME : 만약 핸드폰이 없다면 <no-phone>이라고 출력하고 핸드폰이 있다면 번호를 출력하라. return type은 맞춰서 변환해라
+    fun Person.toPhoneNumber(): Any {
+
+    }
+
 }
+
+data class Person(
+        val age: Int,
+        val phoneNumber: String?
+)
+
 
 data class Student(
         val name: Char,
