@@ -37,6 +37,8 @@ class Week01 {
     @DisplayName("{1,4,5}, {2,3,4}의 array가 넘어온 경우 true 그외 false")
     fun `when에 복수개의 값을 넣었을 때 해당 when이 정상적으로 동작되게 구현하기`(given: Set<Int>, expect: Boolean) {
         val actual = when (given) {
+            setOf(1,4,5) -> true
+            setOf(2,3,4) -> true
             else -> false
         }
 
@@ -49,7 +51,11 @@ class Week01 {
     }
 
     class ValidationClass(val num: Int) {
-
+        init {
+            if (num > 100) {
+                throw RuntimeException()
+            }
+        }
     }
 
     @Test

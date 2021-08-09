@@ -17,4 +17,4 @@ fun <T> Collection<T>.joinToString(
 
 
 //fun String.lastChar(): Char = this[this.length -1]
-fun String.lastChar(): Char = get(length - 1)
+fun String.lastChar(): Char = get(length - 1).uppercaseChar()
