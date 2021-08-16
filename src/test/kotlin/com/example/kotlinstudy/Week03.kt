@@ -8,13 +8,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.properties.ReadWriteProperty
-import kotlin.reflect.KProperty
 
 var count: Int = 0
 
 fun loadEmails(person: Week03.Person): List<String> {
     // FIXME
-//    println("email load ${count++}")
     return listOf("123@toss.im")
 }
 
@@ -77,7 +75,6 @@ class Week03 {
         val name: String,
         val emails: List<String>? = null
     ) {
-//        val emails: List<String> by lazy { loadEmails(this) }
     }
 
 
@@ -94,19 +91,10 @@ class Week03 {
     class Email(
         value: String
     ) {
-        var value: String by EmailDelegate(value)
+        var value: String by EmailDelegate(value) // @가 없으면 이메일 에러 발생
     }
 
     class EmailDelegate(var curr: String) : ReadWriteProperty<Any?, String> {
-        // FIXME
-        override fun getValue(thisRef: Any?, property: KProperty<*>): String = curr
-        override fun setValue(thisRef: Any?, property: KProperty<*>, value: String) {
-            // email format 검증하기
-            if (!value.contains("@")) {
-                throw RuntimeException()
-            }
-            curr = value
-        }
 
     }
 
@@ -127,9 +115,8 @@ class Week03 {
         })
     }
 
-    // FIXME
-    fun List<TossUser>.averageGradeFor(predicate: (TossUser) -> Boolean) =
-        filter(predicate).map(TossUser::grade).average()
+    // TODO : Add 확장함수
+
 
     data class TossUser(
         val grade: Int,
