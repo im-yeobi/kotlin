@@ -26,6 +26,7 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("mysql:mysql-connector-java")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:4.6.1")
 }
 
 tasks.withType<KotlinCompile> {

@@ -39,6 +39,7 @@ class Week01 {
         val actual = when (given) {
             setOf(1, 4, 5) -> true
             setOf(2, 3, 4) -> true
+
             else -> false
         }
 
