@@ -3,7 +3,7 @@ package com.example.kotlinstudy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
-class Week02 {
+class Week02_Question {
 
     @Test
     @DisplayName("성적이 B 이상이고, 나이는 12살 이상 20살 이하인 학생들을 반별로 묶어서 반환하되 반별로는 이름순으로 정렬한다")
@@ -18,8 +18,9 @@ class Week02 {
             Student(it, it.code.minus(55), it.code % 5, grade)
         }.toList()
 
-        // FIXME
-        val result = studentList.groupBy { it.age }
+        val result = studentList.filter { it.age in 12..20 && it.grade <= 'B' }
+                .groupBy { it.classNo }
+                .mapValues { it.value.sortedBy { student ->  student.name } }
 
         assert(result.keys.count() == 3)
         assert(result[0] == null)
@@ -45,8 +46,7 @@ class Week02 {
                     if (i % 4 == 2) null else "010-123-456")
         }
 
-        // FIXME : personList를 이용해 나이를 나누기 4한 값이 같은 사람들끼리 한조로 만들어라. personMap의 type 은 변경해도 된다.
-        val personMap: Map<Int, List<Person>> = mapOf(1 to listOf(), 2 to listOf())
+        val personMap: Map<Int, List<Person>> = personList.groupBy { it.age % 4 }
 
         assert(personMap.size == 3)
         assert(personMap[0] == null)
@@ -61,34 +61,35 @@ class Week02 {
                 }
     }
 
-    // FIXME : 만약 핸드폰이 없다면 <no-phone>이라고 출력하고 핸드폰이 있다면 번호를 출력하라. return type은 맞춰서 변환해라
-    fun Person.toPhoneNumber(): Any {
-
+    fun Person.toPhoneNumber(): String {
+        return phoneNumber?: "no-phone"
     }
+
+    data class Person(
+            val age: Int,
+            val phoneNumber: String?
+    )
+
+
+    data class Student(
+            val name: Char,
+            val age: Int,
+            val classNo: Int,
+            val grade: Char
+    ) {
+        override fun equals(other: Any?): Boolean {
+            return other != null &&
+                    other is Student &&
+                    this.classNo == other.classNo &&
+                    this.age == other.age &&
+                    this.classNo == other.classNo &&
+                    this.grade == other.grade
+        }
+    }
+
 
 }
 
-data class Person(
-        val age: Int,
-        val phoneNumber: String?
-)
-
-
-data class Student(
-        val name: Char,
-        val age: Int,
-        val classNo: Int,
-        val grade: Char
-) {
-    override fun equals(other: Any?): Boolean {
-        return other != null &&
-                other is Student &&
-                this.classNo == other.classNo &&
-                this.age == other.age &&
-                this.classNo == other.classNo &&
-                this.grade == other.grade
-    }
-}
 
 
 
