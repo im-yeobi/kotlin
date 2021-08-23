@@ -139,6 +139,20 @@ interface Comparator<in T> {
     
 사용 지점 변성 : 타입이 언급되는 지점에서의 변성지정 
     
+클래스를 선언하면서 변성을 지정 : 클래스를 사용하는 모든 장소에 변성 지정자가 영향을 끼침. 
+~~~kotlin
+fun <T> copyData(source: MutableList<out T>, destination: MutableList<T>) {
+    for (item in source)
+        destination.add(item)
+}
+~~~    
+   
+타입 프로젝션이 일어나 strict하게 체크하게 된다.    
+    
+    
+## 과제 설명
+내일 업데이트 합니다
+    
 
 # 10. 애노테이션과 리플렉션
 ## 10.1 애노테이션 선언과 적용
