@@ -8,11 +8,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
 
 var count: Int = 0
 
 fun loadEmails(person: Week03.Person): List<String> {
-    // FIXME
+    count++
     return listOf("123@toss.im")
 }
 
@@ -22,15 +23,15 @@ class Week03 {
     @DisplayName("compareValuesBy를 사용해서 성적이높고 이름이 빠른순으로 정렬될 수 있게 작성하기")
     fun sort() {
         val actual = listOf<User>(
-            User(50, "B"),
-            User(50, "C"),
-            User(50, "A"),
-            User(100, "A"),
-            User(100, "B"),
-            User(100, "C"),
-            User(99, "C"),
-            User(99, "B"),
-            User(99, "A")
+                User(50, "B"),
+                User(50, "C"),
+                User(50, "A"),
+                User(100, "A"),
+                User(100, "B"),
+                User(100, "C"),
+                User(99, "C"),
+                User(99, "B"),
+                User(99, "A")
         ).sorted()
 
         actual[0].grade shouldBe 100
@@ -51,12 +52,12 @@ class Week03 {
     }
 
     data class User(
-        val grade: Int,
-        val name: String
+            val grade: Int,
+            val name: String
     ) : Comparable<User> {
         override fun compareTo(other: User): Int {
-            // FIXME
-            return compareValuesBy(this, other, User::grade, User::name)
+            return compareValuesBy(this, other, { other.grade.compareTo(it.grade) }, { it.name })
+            // return compareByDescending<User> { it.grade }.thenBy { it.name }.compare(this, other)
         }
     }
 
@@ -70,11 +71,11 @@ class Week03 {
         count shouldBe 1
     }
 
-    // FIXME
     data class Person(
-        val name: String,
-        val emails: List<String>? = null
+            val name: String,
+            val emailList: List<String>? = null
     ) {
+        val emails: List<String> by lazy { loadEmails(this) }
     }
 
 
@@ -89,12 +90,20 @@ class Week03 {
     }
 
     class Email(
-        value: String
+            value: String
     ) {
         var value: String by EmailDelegate(value) // @가 없으면 이메일 에러 발생
     }
 
     class EmailDelegate(var curr: String) : ReadWriteProperty<Any?, String> {
+        override fun getValue(thisRef: Any?, property: KProperty<*>): String {
+            return curr
+        }
+
+        override fun setValue(thisRef: Any?, property: KProperty<*>, value: String) {
+            if (!value.contains('@')) throw RuntimeException()
+            else curr = value
+        }
 
     }
 
@@ -105,7 +114,6 @@ class Week03 {
             users.add(TossUser(i, i % 2, i % 3 + 1))
         }
         return listOf(DynamicTest.dynamicTest("1반, 2반, 3반에 대해서 평균을 구해보자") {
-            // FIXME
             users.averageGradeFor { it.no % 3 == 0 } shouldBe 50
             users.averageGradeFor { it.no % 3 == 1 } shouldBe 51
             users.averageGradeFor { it.no % 3 == 2 } shouldBe 50.5
@@ -115,13 +123,15 @@ class Week03 {
         })
     }
 
-    // TODO : Add 확장함수
+    fun ArrayList<TossUser>.averageGradeFor(predicate: (TossUser) -> Boolean): Double {
+        return filter(predicate).map(TossUser::grade).average()
+    }
 
 
     data class TossUser(
-        val grade: Int,
-        val gender: Int, // 0: 남자, 1: 여자
-        val no: Int
+            val grade: Int,
+            val gender: Int, // 0: 남자, 1: 여자
+            val no: Int
     ) {
 
     }
