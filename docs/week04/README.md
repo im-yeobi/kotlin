@@ -1,9 +1,142 @@
 # 9. 제네릭스 
 자바의 제네릭스와 비슷하다. 
 ## 9.1 제네릭 타입 파라미터
-코틀린 컴파일러는 타입 인자를 추론할 수 있다. 
+코틀린 컴파일러는 타입 인자를 추론할 수 있다. 빈 리스트 등 타입을 추론할 수 없을 땐 타입을 명시해줘야한다.
 
+### 타입 파라미터 제약
+클래스나 함수에 사용할 수 있는 타입 인자를 제한하는 기능. 예를 들어 sum 함수의 경우 List<Int>나 List<Double>에서는 적용할 수 있지만 List<String>에서는 적용할 수 없다. 
+이는 상한 타입 (upper bound type)을 지정함으로서 해결할 수 있다. 
+~~~kotlin
+fun <T : Number> List<T>.sum() : T
+~~~~
+타입 파라미터에 여러 제약을 가할려면 다음과 같이 한다
+~~~kotlin
+fun <T> ensureTrailingPeriod(seq : T) where T: CharSequence, T: Appendable {
+    ...
+}
+~~~~
+타입파라미터를 널이 될 수 없는 타입으로 한정하려면 상한 타입을 Any로 사용하면 된다. 
+        
+## 9.2 실행 시 제네릭스의 동작 : 소거된 타입 파라미터와 실체화된 타입 파라미터
+JVM의 제네릭스는 보통 타입 소거를 사용해 구현된다 : 실행 시점에 제네릭 클래스의 인스턴스에 타입 인자 정보가 들어있지 않다. 즉 런타임 시점에서는 해당 객체의 제네릭 타입을 알 수가 없다. 
+이를 타입 소거 (type erasure)라고 하는데 이로 인해 한계점이 발생한다. 
+우선 타입인자를 따로 저장하지 않기 때문에 실행 시점에 타입 인자를 검사할 수 없다. 다만 이로 인해 저장해야하는 정보가 줄어들어 메모리 사용량이 줄어든다는 장점이 있다. 
+~~~kotlin
+if(value is List<String>) 
+// ERROR: Cannot check for instance of erased type - 컴파일 시 오류 발생
+~~~
 
+만약 List라는 것을 체크하고 싶다면 아래처럼 하면 된다. 여기서 *를 스타프로텍션이라고 부른다. 
+
+~~~kotlin
+if(value is List<*>) 
+~~~
+
+제네릭 타입은 타입체크가 안되므로 잘못된 타입으로 캐스팅도 가능하다! (as)
+이런 제약을 피하기 위해서는 inline 함수를 사용한다. inline 함수의 타입 파라미터는 실체화되므로 실행 시점에 인차인 함수의 타입 인자를 알 수 있다.
+* inline 함수 : 함수 호출 부분을 함수 본문으로 대체. 람다를 인자로 사용할 경우 인라인을 붙이면 무명클래스를 만들지 않아 성능적 이득이 있음. 
+함수를 인라인으로 만들고 타입 파라미터를 reified로 지정하면 value의 타입이 T의 인스턴스인지를 실행 시점에 검사할 수 있다.
+인라인 함수의 경우 타입인자를 확정하여 쓸 수 있는 이유는 함수 본문을 호출 부분에 대체하기 때문에 컴파일러는 정확한 타입인자를 알 수 있게 된다. 그래서 가능하다. 함수가 너무 크다면 성능 저하가 일어날 수 도 있다. 
+    
+~~~kotlin
+inline fun <reified T> isA(value : Any) = value is T
+~~~
+reified : 구체화
+
+~~~kotlin 
+val serviceImpl = ServiceLoader.load(Service::class.java)
+
+val serviceImpl = loadService<Service>()
+~~~
+    
+
+~~~kotlin 
+inline fun <reified T> loadService() {
+    return ServiceLoader.load(T::class.java)
+}
+~~~    
+    
+이런 실체화한 타입 파라미터는 몇가지 제약이 있다. 다음의 경우 실체화된 타입 파라미터를 사용할 수 있다
+    - 타입 검사와 캐스팅
+    - 코틀린 리플렉션 API
+    - 코틀린 타입에 대응하는 java.lang.Class를 얻기
+     다른 함수를 호출할 때 타입인자로 사용 
+    
+다음의 일은 불가능하다
+    - 타입 파라미터 클래스의 인스턴스 생성하기 
+    - 타입 파라미터 클래스의 동반 객체 메소드 호출하기 
+    - 실체화한 타입 파라미터를 요구하는 함수를 호출하면서 실체화하지 않는 타입 파라미터로 받은 타입을 타입 인자로 넘기기
+    - 클래스, 프로퍼티, 인라인 함수가 아닌 함수의 타입 파라미터를 reified로 지정하기 
+
+실체화한 타입 파라미터를 인라인 함수에만 사용할 수 있으므로, 실체화한 타임 파라미터를 사용하는 함수는 자신에게 전달되는 모든 람다와 함께 인라이닝된다. 람다 내부에서 타입 파라미터를 사용하는 방식에 따라서는 람다를 인라인할 수 없는 경우가 생기기도 하고, 람다를 인라이닝 하고싶지 않을 수도 있다. 이럴 경우 noinline 변경자를 사용하여 인라이닝을 금지할 수 있다. 
+    
+    
+## 9.3 변성 : 제네릭과 하위 타입
+변성 : List<String>과 List<Any>같이 기저 타입이 같고 타입 인자가 다른 여러 타입이 서로 어떤 관계가 있는지 설명하는 개념이다. 
+
+List<Any>를 인자로 받는 곳에 List<String>을 인자로 넘긴다면.. 
+    - read만 하는 경우는 안전하다 (List)
+    - 원소를 추가하거나 변경한다면 타입 불일치가 생길수 있으므로 안전하지 않다 (MutableList)
+    
+하위 타입 : 하위 클래스와 근본적으로 같다. 널이 될 수 없는 타입은 널이 될 수 있는 타입의 하위타입이다. 
+무공변 : 제네릭 타입을 인스턴스화 할때 타입 인자로 서로 다른 타입이 들어가면 인스턴스 타입 사이의 하위 타입관계가 성립하지 않을때 그 제네릭 타입을 무공변이라고 한다. 
+공변적 : A가 B의 하위타입이면 List<A>는 List<B>의 하위 타입이다. 
+    
+공변성 : 하위 타입 관계를 유지 
+A가 B의 하위타입일 때 Producer<A>가 Producer<B>의 하위타입이면 Producer는 공변적이다. 코틀린에서 제네릭 클래스가 파라미터에 대해 공변적임을 표시하려면 타입파라미터 이름 앞에 out을 붙여야한다. 
+~~~kotlin
+interface Producer<out T>
+    fun produce() : T
+~~~~
+    
+~~~kotlin
+open class Animal {
+    fun fedd() { ... }
+}
+    
+class Herd<T: Animal>
+    val size: Int get() = ...
+    operator fun get(i: Int): T { ... }
+}
+    
+fun feedAll(animals: Herd<Animal>) {
+    for( i in 0 until animals.size) {
+        animals[i].feed()
+    }
+}
+    
+class Cat : Animal() {
+    fun cleanLitter() { ... }
+}
+    
+fun takeCaredOfCats(cats: Herd<Cat>) {
+    for(i in 0 until cats.size) {
+        cats[i].cleanLitter()
+        feedAll(cats) // error occurs. 변성을 지정하지 않았기 때문에 에러가 발생한다!
+    }
+}
+    
+// 아래와 같이 지정해야한다 
+    
+class Herd<out T : Animal> { ... }
+
+fun takeCareOfCats(cats:Herd<Cat>) {
+    .... 
+}
+~~~
+    
+반공변성 : 뒤집힌 하위 타입 관계
+타입 B가 타입 A의 하위 타입인 경우 Consumer<A>가 Consumer<B>의 하위타입인 관계가 성립하면 제네릭 클래스 Consumer<T>는 타입인자 T에 대해 반공변이다. 
+이 경우 in 위치에서만 사용할 수 있다.     
+~~~kotlin
+interface Comparator<in T> {
+    fun compared(e1: T, e2: T) : Int { ... }
+~~~
+    
+위 경우 인터페이스의 메소드는 T 타입 값을 소비하기만 하므로 in 키워드를 붙여야한다.
+    
+사용 지점 변성 : 타입이 언급되는 지점에서의 변성지정 
+    
 
 # 10. 애노테이션과 리플렉션
 ## 10.1 애노테이션 선언과 적용
