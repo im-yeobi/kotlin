@@ -74,16 +74,18 @@ inline fun <reified T> loadService() {
 ## 9.3 변성 : 제네릭과 하위 타입
 변성 : List<String>과 List<Any>같이 기저 타입이 같고 타입 인자가 다른 여러 타입이 서로 어떤 관계가 있는지 설명하는 개념이다. 
 
-List<Any>를 인자로 받는 곳에 List<String>을 인자로 넘긴다면.. 
+`List<Any>`를 인자로 받는 곳에 `List<String>` 을 인자로 넘긴다면.. 
     - read만 하는 경우는 안전하다 (List)
     - 원소를 추가하거나 변경한다면 타입 불일치가 생길수 있으므로 안전하지 않다 (MutableList)
     
 하위 타입 : 하위 클래스와 근본적으로 같다. 널이 될 수 없는 타입은 널이 될 수 있는 타입의 하위타입이다. 
 무공변 : 제네릭 타입을 인스턴스화 할때 타입 인자로 서로 다른 타입이 들어가면 인스턴스 타입 사이의 하위 타입관계가 성립하지 않을때 그 제네릭 타입을 무공변이라고 한다. 
-공변적 : A가 B의 하위타입이면 List<A>는 List<B>의 하위 타입이다. 
+공변적 : A가 B의 하위타입이면 `List<A>`는 `List<B>` 의 하위 타입이다. 
     
 공변성 : 하위 타입 관계를 유지 
-A가 B의 하위타입일 때 Producer<A>가 Producer<B>의 하위타입이면 Producer는 공변적이다. 코틀린에서 제네릭 클래스가 파라미터에 대해 공변적임을 표시하려면 타입파라미터 이름 앞에 out을 붙여야한다. 
+    
+A가 B의 하위타입일 때 `Producer<A>`가 `Producer<B>` 의 하위타입이면 Producer는 공변적이다. 코틀린에서 제네릭 클래스가 파라미터에 대해 공변적임을 표시하려면 타입파라미터 이름 앞에 out을 붙여야한다. 
+    
 ~~~kotlin
 interface Producer<out T>
     fun produce() : T
@@ -126,7 +128,7 @@ fun takeCareOfCats(cats:Herd<Cat>) {
 ~~~
     
 반공변성 : 뒤집힌 하위 타입 관계
-타입 B가 타입 A의 하위 타입인 경우 Consumer<A>가 Consumer<B>의 하위타입인 관계가 성립하면 제네릭 클래스 Consumer<T>는 타입인자 T에 대해 반공변이다. 
+타입 B가 타입 A의 하위 타입인 경우 `Consumer<A>`가 `Consumer<B>`의 하위타입인 관계가 성립하면 제네릭 클래스 `Consumer<T>`는 타입인자 T에 대해 반공변이다. 
 이 경우 in 위치에서만 사용할 수 있다.     
 ~~~kotlin
 interface Comparator<in T> {
