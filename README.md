@@ -21,9 +21,14 @@
 - 2주차:  5, 6장 @KimHyoJin
 - 3주차:  7, 8장 @KangWooJin
 - 4주차:  9, 10장 @KimHyoJin
+- 5주차:  부록 코루틴과 Async/Await @KangWooJin
 
 ### 코틀린 동시성 프로그래밍
-- 5주차:  1, 2, 3장 @KangWooJin
-- 6주차:  4, 5장 @KimHyoJin
-- 7주차:  6, 7장 @KangWooJin
-- 8주차:  8, 9장 @KimHyoJin
+- 5주차:  1장 @KangWooJin
+- 6주차:  2, 3장 @KimHyoJin
+- 7주차:  4, 5장 @im-yeobi
+- 8주차:  6, 7장 @KangWooJin
+- 9주차:  8, 9장 @KimHyoJin
+
+### 코루틴 Docs
+- TODO
