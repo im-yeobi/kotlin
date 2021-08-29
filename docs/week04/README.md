@@ -151,7 +151,7 @@ fun <T> copyData(source: MutableList<out T>, destination: MutableList<T>) {
     
     
 ## 과제 설명
-내일 업데이트 합니다
+
     
 
 # 10. 애노테이션과 리플렉션
@@ -217,6 +217,76 @@ annotation class CustomSerializer(
 이는 자바에 없는 프로퍼티나 널이 될 수 있는 타입 등 코틀린 고유 개켬에 대한 리플렉션을 제공한다. 
 
 ### 코틀린 리플렉션 API : KClass, KCallable, KFunction, KProperty
+KClass : 클래스 안에 있는 모든 선언을 열거하고 각 선언에 접근하거나 클래스의 상위 클래스를 얻는 등의 작업이 가능해진다.
+~~~kotlin
+val person = Person("Alice", 29)
+val kClass = person.javaClass.kotlin
+~~~
 
+KCallable : 함수와 프로퍼티를 아우르는 공통 상위 인터페이스 
+~~~kotlin
+fun foo(x:Int) = println(x)
+val kFunction = ::foo
+kFunction.call(42)
+~~~
+함수를 표현하는 클래스는 KFunction이 있고 프로퍼티를 표현하는 클래스는 KProperty가 있다.
+~~~kotlin
+val kProperty = ::counter
+kProperty.setter.call(21)
+println(kProperty.get())
+21
+
+val person = Person("Alice", 29)
+val memberProperty = Person::age
+println(memberProperty.get(person))
+29
+~~~
+
+여기서 함수를 호출할 때 구체적인 메소드를 사용할 수도 있다. KFunctionN을 이용하면 가능하다. 
+자바와 마찬가지로 함수안의 로컬변수에 대한 접근은 리플렉션으로 불가능하다. 
+
+### 리플렉션을 이용한 객체 직렬화와 역직렬화
+~~~kotlin
+val kClass = obj.javaClass.kotlin
+val properties = kClass.memberProperties
+
+properties.joinToStringBuilder(this, prefix = "{", postfix ="}" ) {
+    prop -> serializeString(prop.name)
+    append(": ")
+    serializePropertyValu(prop.get(obj))
+}
+~~~
+위와 같은 과정으로 직렬화를 실현한다. 어노테이션이 붙은 직렬화의 경우 findAnnotation 함수를 이용해서 직렬화를 한다.
+책에 나온 deserialize의 예제는 제이키드의 예제이므로...
+
+~~~java
+// ClassDeserializer
+public ClassDeserializer(@NotNull DeserializationComponents components) {
+    Intrinsics.checkNotNullParameter(components, "components");
+    super();
+    this.components = components;
+
+    final class NamelessClass_1 extends Lambda implements Function1<ClassDeserializer.ClassKey, ClassDescriptor> {
+      NamelessClass_1() {
+        super(1);
+      }
+
+      @Nullable
+      public final ClassDescriptor invoke(@NotNull ClassDeserializer.ClassKey key) {
+        Intrinsics.checkNotNullParameter(key, "key");
+        return ClassDeserializer.this.createClass(key);
+      }
+    }
+
+    this.classes = (Function1)this.components.getStorageManager().createMemoizedFunctionWithNullableValues((Function1)(new NamelessClass_1()));
+  }
+
+  // classId : class name 및 package
+  @Nullable
+  public final ClassDescriptor deserializeClass(@NotNull ClassId classId, @Nullable ClassData classData) {
+    Intrinsics.checkNotNullParameter(classId, "classId");
+    return (ClassDescriptor)this.classes.invoke(new ClassDeserializer.ClassKey(classId, classData));
+  }
+~~~
 
 ## 과제 설명
