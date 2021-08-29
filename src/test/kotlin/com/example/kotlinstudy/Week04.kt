@@ -24,14 +24,8 @@ class Week04 {
     }
 
     // TODO : implement this
-    inline fun <reified T> List<Animal>.filterIsType(): List<T> {
-        val result = mutableListOf<T>()
-        for (element in this) {
-            if (element is T) {
-                result.add(element)
-            }
-        }
-        return result
+    inline fun <T> List<Animal>.filterIsType(): List<Animal> {
+       return this
     }
 
 
@@ -47,9 +41,7 @@ class Week04 {
 
 
     data class Cat(
-            @JsonProperty("cuteCatName")
             override val name: String,
-            @JsonProperty("cuteCatAge")
             override val age: Int,
     ) : Animal(name, age)
 
