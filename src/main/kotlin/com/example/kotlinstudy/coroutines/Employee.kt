@@ -16,6 +16,7 @@ class EmployeeRepository {
             5L to Employee(5, true)
         )
 
+    // FIXME: 랜덤으로 인해 block이 많이 되는 경우 해당 로직 수정 필요
     fun findEmployee(id: Long): Employee {
         while (true) {
             val employee = employees[id]
