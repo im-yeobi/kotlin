@@ -19,6 +19,12 @@ data class Car(
         employee1.active = true
         employee2.active = true
     }
+
+    fun assembleV2(employee1: Employee, employee2: Employee, carFrame: CarFrame, carDoor: CarDoor, carTire: CarTire) {
+        log("employee1 id:${employee1.id}, employee2 id:${employee2.id}가 프레임 ${carFrame.id}, 문 ${carDoor.id}, 타이어 ${carTire.id}를 이용해 car $id 조립중")
+        Thread.sleep(5000L)
+        log("employee1 id:${employee1.id}, employee2 id:${employee2.id}가 프레임 ${carFrame.id}, 문 ${carDoor.id}, 타이어 ${carTire.id}를 이용해 car $id 조립완료")
+    }
 }
 
 data class CarFrame(
@@ -36,6 +42,12 @@ data class CarFrame(
         Thread.sleep(1000L)
         log("employee id:${employee.id}가 자동차 프레임 $id 조립 완료")
         employee.active = true
+    }
+
+    fun assembleV2(employee: Employee) {
+        log("employee id:${employee.id}가 자동차 프레임 $id 조립 중")
+        Thread.sleep(1000L)
+        log("employee id:${employee.id}가 자동차 프레임 $id 조립 완료")
     }
 }
 
@@ -56,6 +68,12 @@ data class CarTire(
         log("employee id:${employee.id}가 프레임 ${carFrame.id} 에 자동차 타이어 $id 조립 완료")
         employee.active = true
     }
+
+    fun assembleV2(employee: Employee, carFrame: CarFrame) {
+        log("employee id:${employee.id}가 프레임 ${carFrame.id} 에 자동차 타이어 $id 조립 중")
+        Thread.sleep(1000L)
+        log("employee id:${employee.id}가 프레임 ${carFrame.id} 에 자동차 타이어 $id 조립 완료")
+    }
 }
 
 class CarDoor(
@@ -63,9 +81,9 @@ class CarDoor(
     val carFrame: CarFrame
 ) {
     init {
-        log("자동차 문 배송 중")
+        log("자동차 문 $id 배송  중")
         Thread.sleep(1000L)
-        log("자동차 문 배송 완료")
+        log("자동차 문 $id 배송 완료")
     }
 
     fun assemble(employee: Employee, carFrame: CarFrame) {
@@ -74,5 +92,11 @@ class CarDoor(
         Thread.sleep(1000L)
         log("employee id:${employee.id}가 프레임 ${carFrame.id} 에 자동차 문 $id 조립 완료")
         employee.active = true
+    }
+
+    fun assembleV2(employee: Employee, carFrame: CarFrame) {
+        log("employee id:${employee.id}가 프레임 ${carFrame.id} 에 자동차 문 $id 조립 중")
+        Thread.sleep(1000L)
+        log("employee id:${employee.id}가 프레임 ${carFrame.id} 에 자동차 문 $id 조립 완료")
     }
 }
