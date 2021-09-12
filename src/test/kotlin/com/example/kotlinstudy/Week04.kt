@@ -7,6 +7,8 @@ import io.kotest.matchers.ints.shouldBeExactly
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.springframework.context.annotation.Description
+import kotlin.reflect.KClass
+import kotlin.reflect.cast
 
 class Week04 {
 
@@ -25,9 +27,14 @@ class Week04 {
 
     // TODO : implement this
     inline fun <T> List<Animal>.filterIsType(): List<Animal> {
-       return this
+       return this.filterIsInstance<Cat>()
     }
 
+//    inline fun <T> List<Animal>.filterIsType(): List<Animal> {
+//        return this.filter {
+//            it.javaClass.kotlin.simpleName == Cat::class.simpleName
+//        }
+//    }
 
     @Test
     @Description("Cat 타입을 json serialize시 name field를 cuteCatName으로, age를 cuteCatAge로 변환")
