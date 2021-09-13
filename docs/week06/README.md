@@ -150,3 +150,56 @@ job이라는것은 coroutine context를 뜻하는 것이다.
 > 코루틴 하나는 하나의 잡(Job) 으로 볼 수 있습니다. 잡은 코루틴의 라이프사이클, 취소, 그리고 부모-자식 관계를 책임집니다. 현재의 잡이 무엇인지는 현재 코루틴의 컨텍스트를 호출해서 확인할 수 있습니다.
 
 ![img.png](img.png)
+
+- 생성 : launch()나 Job()을 이용하여 생성. 기본적으로 생성과 동시에 바로 시작이 되고, 그렇게 하지 않게 하려면 CoroutineStart.LAZY를 사용한다. 
+- 활성 
+    - start() : 잡이 완료될때까지 기다리지 않고 잡을 시작한다 
+    - join() : 잡이 완료될때까지 실행을 일시 중단한다. 일시 중단할 수 있으므로 코루틴이나 일시 중단 함수에서 호출해야한다. 
+
+- 취소중 : 취소 요청 (cancel()). 취소 요청 후 취소가 완료될때까지 중단 (cancelAndJoin())
+- 취소됨 : getCancellationException()을 이용해서 취소에 대한 정보를 받을 수 있다. 
+- 완료됨 : 완료된 상태 (isCompleted() - 취소되었을때도 true)
+
+![image](https://user-images.githubusercontent.com/7702472/133043719-aff50173-6444-4b12-adf0-a4076df928ff.png)
+
+
+### 디퍼드 
+연산이 객체를 반환할 것이며, 그 객체는 비동기 작업이 완료될 때까지 비어있다 (Future와 같음)
+디퍼드는 기본적으로 예외를 자동으로 전파하지 않는다. 
+- await()을 호출하여 예외를 받을 수 있다. 
+
+~~~kotlin
+val transferLogs = async {
+    tossLogRepository.getTransferLogs(user, dateRange, coLazyOf(emptyList())).filter { ignoreSettingTime || it.regTime >= primaryAccountSettingTime }
+}
+/// 
+transferLogs.await()
+~~~~
+
+~~~kotlin
+public fun <T> CoroutineScope.async(
+    context: CoroutineContext = EmptyCoroutineContext,
+    start: CoroutineStart = CoroutineStart.DEFAULT,
+    block: suspend CoroutineScope.() -> T
+): Deferred<T> {
+    val newContext = newCoroutineContext(context)
+    val coroutine = if (start.isLazy)
+        LazyDeferredCoroutine(newContext, block) else
+        DeferredCoroutine<T>(newContext, active = true)
+    coroutine.start(start, coroutine, block)
+    return coroutine
+}
+~~~
+
+Lazy means "don't do the work until you absolutely have to."
+Deferred means "don't compute the result until the caller actually uses it."
+
+By default, the coroutine is immediately scheduled for execution. Other options can be specified via start parameter. See CoroutineStart for details. An optional start parameter can be set to CoroutineStart.LAZY to start coroutine lazily. In this case, the resulting Deferred is created in new state. It can be explicitly started with start function and will be started implicitly on the first invocation of join, await or awaitAll.
+
+lazy인경우 코루틴 생성자체를 미룬다. 
+deferred인 경우 코루틴은 즉각 만들지만 그 안의 계산(연산)은 미룬다 
+
+- 실제 체감하는 차이가 있는지는 정확히 모르겠음!
+
+# 과제
+오늘밤에 올립니다---
