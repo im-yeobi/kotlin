@@ -77,7 +77,7 @@ class SuspendProfileServiceClientImpl : ProfileServiceClient {
 - 컨텍스트는 코루틴이 어떻게 실행되고 동작해야 하는지를 정의할 수 있게 해주는 요소들의 그룹이다.
 
 <div align="center">
-<img width="300" src="./image/01_coroutine_context.png" />
+<img width="700" src="./image/01_coroutine_context.png" />
 </div>
 
 ### 디스패처
@@ -140,6 +140,9 @@ GlobalScope.launch(Dispatchers.Unconfined) {
 Starting in Thread[main,5,main]
 Resuming in Thread[kotlinx.coroutines.DefaultExecutor,5,main]
 ```
+
+### [Dispatchers.IO](https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-dispatchers/-i-o.html)
+- 기본적으로 최대 64개의 스레드로 수행된다. (커스텀 가능)
 
 #### [newSingleThreadContext()](https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/new-single-thread-context.html)
 - 단일 스레드 컨텍스트
@@ -504,3 +507,38 @@ producer.take(3).consumeEach {
 ---
 
 ## 과제 설명
+
+### 4장 과제
+- 디스패처에 대해 좀 더 딥하게 공부해보면 좋을 것 같습니다.
+- Default, IO, Unconfined 각각의 성능을 비교해보고 어떤 작업 때 각각의 디스패처를 사용하면 좋을지 비교 정리 후 공유하기.
+
+### 5장 과제
+- 특정 계좌의 거래내역을 1개씩 조회하기. Producer(필수) + Iterator/Sequence(택 1)
+- 한 번 컨슈밍 할 때 계좌 하나, 거래내역 하나가 조회된다.
+  - 계좌 목록  
+      ```text
+      - 토스뱅크 1000-0000-1234
+      - 우리은행 1002-1234-5678
+      - 카카오뱅크 3333-01-1234567
+      ```
+  - 거래내역 
+     ```text
+     데이터 필드 : 계좌번호, 거래유형(입금/출금), 금액, 잔액, 거래일시
+     
+     토스뱅크 계좌 거래내역
+     - 1000-0000-1234, 입금, 50000, 100000, 2021-01-01 10:00:00
+     - 1000-0000-1234, 입금, 3000, 103000, 2021-01-10 15:00:00
+     - 1000-0000-1234, 출금, 13000, 90000, 2021-01-10 17:00:00
+     
+     우리은행 계좌 거래내역
+     - 1002-1234-5678, 입금, 1, 1, 2021-01-01 07:00:00
+     - 1002-1234-5678, 입금, 200000, 200001, 2021-01-10 20:00:00
+     - 1002-1234-5678, 출금, 50000, 150001, 2021-01-15 23:00:00
+     - 1002-1234-5678, 입금, 10, 150011, 2021-01-20 15:00:00
+     
+     카카오뱅크 계좌 거래내역
+     - 3333-01-1234567, 입금, 1000000, 1000000, 2021-01-01 12:00:00
+     - 3333-01-1234567, 입금, 500000, 1500000, 2021-01-10 20:00:00
+     - 3333-01-1234567, 입금, 300000, 1800000, 2021-01-25 23:00:00
+     - 3333-01-1234567, 입금, 2000000, 3600000, 2021-01-30 15:00:00
+     ```
