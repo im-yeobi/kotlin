@@ -76,14 +76,41 @@ class SuspendProfileServiceClientImpl : ProfileServiceClient {
 - **코루틴은 항상 컨텍스트 안에서 실행된다.**
 - 컨텍스트는 코루틴이 어떻게 실행되고 동작해야 하는지를 정의할 수 있게 해주는 요소들의 그룹이다.
 
+<div align="center">
+<img width="300" src="./image/01_coroutine_context.png" />
+</div>
+
 ### 디스패처
 - 대스패처는 코루틴이 실행될 스레드를 결정한다. 시작될 곳, 중단 후 재개될 곳을 모두 결정한다.
 - `스레드 간에 코루틴을 분산하는 오케스트레이터`
 
-#### CommonPool
-- CPU 바운드 작업을 위해서 프레임워크에 의해 자동으로 생성되는 스레드 풀이다.
-- 스레드 풀의 최대 크기는 시스템의 코어 수에서 1을 뺀 값이다.
-- 현재는 CommonPool을 직접 사용할 수 없다. `Dispathcers.Default` 가 기본 디스패처이다. (CPU 코어 개수만큼 생성되는 스레드 풀)
+```kotlin
+launch { // context of the parent, main runBlocking coroutine
+    println("main runBlocking      : I'm working in thread ${Thread.currentThread().name}")
+}
+launch(Dispatchers.Unconfined) { // not confined -- will work with main thread
+    println("Unconfined            : I'm working in thread ${Thread.currentThread().name}")
+}
+launch(Dispatchers.Default) { // will get dispatched to DefaultDispatcher 
+    println("Default               : I'm working in thread ${Thread.currentThread().name}")
+}
+launch(newSingleThreadContext("MyOwnThread")) { // will get its own new thread
+    println("newSingleThreadContext: I'm working in thread ${Thread.currentThread().name}")
+}
+```
+
+```text
+Unconfined            : I'm working in thread main
+Default               : I'm working in thread DefaultDispatcher-worker-1
+main runBlocking      : I'm working in thread main
+newSingleThreadContext: I'm working in thread MyOwnThread
+```
+
+#### [Dispatchers.Default](https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-dispatchers/-default.html)
+- CommonPool : CPU 바운드 작업을 위해서 프레임워크에 의해 자동으로 생성되는 스레드 풀이다.
+- 현재는 CommonPool을 직접 사용할 수 없다. 가 기본 디스패처이다.
+- `launch`, `async` 등 코루틴 빌더에 디스패처 명시하지 않으면 `Dispatchers.Default`로 설정된다. 
+- JVM의 shared pool을 사용하고, 스레드 최대 개수는 CPU 코어 개수와 동일하다. 
 ```kotlin
 GlobalScope.launch(CommonPool) { // 지원 종료
     // TODO: Implement CPU-bound algorithm here
@@ -96,9 +123,10 @@ GlobalScope.launch(Dispatchers.Default) {
 }
 ```
 
-#### Unconfined
+#### [Unconfined](https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-dispatchers/-unconfined.html)
 - 첫 번째 중단 지점에 도달할 때까지 현재 스레드에 있는 코루틴을 실행한다.
 - 중단 후 다음 코루틴이 실행되었던 스레드에서 재개된다.
+- 구체적으로 스레드에 제한이 
 ```kotlin
 GlobalScope.launch(Dispatchers.Unconfined) {
     // main 스레드 실행
@@ -113,9 +141,10 @@ Starting in Thread[main,5,main]
 Resuming in Thread[kotlinx.coroutines.DefaultExecutor,5,main]
 ```
 
-#### 단일 스레드 컨텍스트
+#### [newSingleThreadContext()](https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/new-single-thread-context.html)
+- 단일 스레드 컨텍스트
+- 비용이 많이 드는 작업이다. 메모리 leak 발생 가능성
 - 항상 코루틴이 특정 스레드 안에서 실행된다는 것을 보장한다.
-- `newSingleThreadContext()`를 사용한다.
 ```kotlin
 val dispatcher = newSingleThreadContext("newThread")
 
@@ -234,9 +263,10 @@ val tmpContext = context.minusKey(dispatcher.key)   // 컨텍스트에서 디스
 ```
 
 #### withContext를 사용하는 임시 컨텍스트 스위치
-- `withContext()`는 코드 블록 실행을 위해 주어진 컨텍스트를 사용할 일시 중단 함수이다.
+- `withContext()`는 코드 블록 실행을 위해 주어진 컨텍스트를 사용할 일시 중단 함수이다. 
 - withContext는 Job이나 Deferred를 반환하지 않는다. 전달한 람다의 마지막 구문에 해당하는 값을 반환할 것이다.
 - `join()`이나 `await()`를 호출할 필요 없이 context가 종료될 때까지 일시 중단된다.
+- 실행중인 코루틴 안에서 컨텍스트 변경해서 작업할 때 사용한다.
 ```kotlin
 // aysnc
 runBlocking {
