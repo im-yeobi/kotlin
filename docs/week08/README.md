@@ -1,4 +1,4 @@
-## 채널 - 통신을 통한 메모리 공유
+# 06. 채널 - 통신을 통한 메모리 공유
 
 # 채널의 이해
 - 실행 중인 스레드에 상관없이 서로 다른 코루틴 간에 메시지를 안전하게 보내고 받기 위한 파이프라인
@@ -299,3 +299,260 @@ Exception in thread "main" kotlinx.coroutines.channels.ClosedReceiveChannelExcep
 ```
 ## 과제 설명
 - capacity 50이면서, capacity가 가득찬 경우 가장 최근에 들어온 데이터를 유실하는 channel 만들어보기
+가
+
+# 07. 스레드 한정, 액터 그리고 뮤텍스  
+
+## 원자성 위반
+- 동시성 애플리케이션에서 서로 다른 스레드가 공유하는 데이터를 변경할 때 변경사항이 정상적으로 적용되지 않는 현상
+```kotlin
+fun main() = runBlocking {
+    val workerA = asyncIncrement(2000)
+    val workerB = asyncIncrement(2000)
+    workerA.await()
+    workerB.await()
+
+    log("counter [$counter]")
+}
+
+var counter = 0
+
+fun asyncIncrement(number: Int) =
+    GlobalScope.async(Dispatchers.IO) {
+        for ( i in 0 until number) {
+            counter ++
+        }
+    }
+
+/*
+21:25:59.209:Thread[main,5,main]: counter [2590]
+ */
+```
+
+# 해결 방법
+## 코루틴을 단일 스레드로 한정
+- singleThread에서 동작하게 하면 동시성은 떨어지지만 원자성을 보장할 수 있음
+```kotlin
+val context = newSingleThreadContext("counter")
+fun incrementAsyncBySingleThread(number: Int) =
+    GlobalScope.async(context) {
+        for ( i in 0 until number) {
+            counter ++
+        }
+    }
+/*
+21:29:02.380:Thread[main,5,main]: counter [4000]
+ */
+```
+
+## 액터
+```kotlin
+val c = actor {
+    // initialize actor's state
+    for (msg in channel) {
+        // process message here
+    }
+}
+// send messages to the actor
+c.send(...)
+...
+// stop the actor when it is no longer needed
+c.close()
+```
+- actor를 만들고 channel로 부터 msg를 받을 수 있게 셋팅
+- actor에 send()를 이용해 데이터를 보내면 msg에 데이터가 들어오게 되고 해당 msg를 기반으로 데이터를 처리
+- actor를 멈춰야 하는 경우 close를 호출해서 멈춘다
+- channel에 SendChannel, ReceiveChannel을 활용하는 케이스인데, actor에 capacity queue가 있어 원자성을 보장 해준다.
+
+```kotlin
+private var counterByActor = 0
+private val contextActor = newSingleThreadContext("counterActor")
+
+val actorCounter = GlobalScope.actor<Void?>(contextActor) {
+    for (msg in channel) {
+        log("counter 증가 ${counterByActor++}")
+    }
+}
+
+fun main() = runBlocking {
+    val workerA = incrementAsyncByActor(2000, "workerA")
+    val workerB = incrementAsyncByActor(2000, "workerB")
+    workerA.await()
+    workerB.await()
+
+    log("counter [$counterByActor]")
+}
+
+fun incrementAsyncByActor(number: Int, worker: String) =
+    GlobalScope.async(Dispatchers.IO) {
+        for ( i in 0 until number) {
+            actorCounter.send(null)
+            log("$worker send $i")
+        }
+    }
+```
+
+## 액터를 사용한 기능 확장
+
+```kotlin
+enum class Action {
+    INCREASE,
+    DECREASE
+}
+
+val actorCounter = GlobalScope.actor<Action>(contextActor) {
+    for (msg in channel) {
+        when (msg) {
+            Action.INCREASE -> counterByActor++
+            Action.DECREASE -> counterByActor--
+        }
+    }
+}
+
+fun incrementAsyncByActor(number: Int, worker: String) =
+    GlobalScope.async(Dispatchers.IO) {
+        for ( i in 0 until number) {
+            actorCounter.send(Action.INCREASE)
+            log("$worker send $i")
+        }
+    }
+```
+- send시에 `Action`을 전달하여 msg에서 해당 값을 보고 분기 처리가 가능
+
+## 액터 상호 작용에 대한 추가 정보
+### 버퍼드 액터
+
+```kotlin
+fun main() {
+    runBlocking {
+        val bufferedPrinter = actor<String>(capacity = 10) {
+            for (msg in channel) {
+                log(msg)
+            }
+        }
+
+        bufferedPrinter.send("hello")
+        bufferedPrinter.send("world")
+        bufferedPrinter.close()
+    }
+}
+```
+- capacity의 값을 설정해서 Channel을 ArrayChannel로 생성한다.
+- 버퍼가 가득찬 경우에 send쪽을 block 한다
+
+### CoroutineContext를 갖는 액터
+```kotlin
+fun main() {
+    runBlocking {
+        val bufferedPrinter = actor<String>(newFixedThreadPoolContext(3, "pool")) {
+            for (msg in channel) {
+                log(msg)
+            }
+        }
+
+        bufferedPrinter.send("hello")
+        bufferedPrinter.send("world")
+        bufferedPrinter.close()
+    }
+}
+/*
+23:37:11.479:Thread[pool-1,5,main]: hello
+23:37:11.508:Thread[pool-1,5,main]: world
+*/
+```
+- dispatcher에 쓰레드 풀을 전달하여 특정 쓰레드 풀에서 처리되게 할 수 있음
+### CorouitineStart
+```kotlin
+DEFAULT -- immediately schedules coroutine for execution according to its context;
+LAZY -- starts coroutine lazily, only when it is needed;
+ATOMIC -- atomically (in a non-cancellable way) schedules coroutine for execution according to its context;
+UNDISPATCHED -- immediately executes coroutine until its first suspension point in the current thread.
+```
+
+
+```kotlin
+fun main() {
+    runBlocking {
+        createActor(CoroutineStart.LAZY)
+        createActor(CoroutineStart.DEFAULT)
+        createActor(CoroutineStart.ATOMIC)
+        createActor(CoroutineStart.UNDISPATCHED)
+    }
+}
+
+private suspend fun CoroutineScope.createActor(start : CoroutineStart) {
+    val defaultActor = actor<String>(start = start) {
+        for (msg in channel) {
+            log(msg)
+        }
+    }
+    log("started ${defaultActor.toString()}")
+    log(defaultActor.toString())
+    defaultActor.send("hello")
+    log(defaultActor.toString())
+    defaultActor.send("world")
+    defaultActor.close()
+    log("closed ${defaultActor.toString()}")
+}
+/*
+23:47:36.781:Thread[main,5,main]: started LazyActorCoroutine{New}@3e57cd70
+23:47:36.799:Thread[main,5,main]: LazyActorCoroutine{New}@3e57cd70
+23:47:36.804:Thread[main,5,main]: hello
+23:47:36.805:Thread[main,5,main]: LazyActorCoroutine{Active}@3e57cd70
+23:47:36.806:Thread[main,5,main]: closed LazyActorCoroutine{Active}@3e57cd70
+23:47:36.807:Thread[main,5,main]: started ActorCoroutine{Active}@1d7acb34
+23:47:36.807:Thread[main,5,main]: ActorCoroutine{Active}@1d7acb34
+23:47:36.807:Thread[main,5,main]: world
+23:47:36.807:Thread[main,5,main]: hello
+23:47:36.808:Thread[main,5,main]: ActorCoroutine{Active}@1d7acb34
+23:47:36.808:Thread[main,5,main]: closed ActorCoroutine{Active}@1d7acb34
+
+ */
+```
+- lazy의 경우 만들때 상태값은 New 이며, send 후 Active 상태로 변경된다
+- 그 외에는 만들때부터 Active 상태이다.
+
+# 상호배제
+- Actor 방식은 단일 스레드에서 처리가 될 수 있게하여 원자성 위반을 회피
+- 한 번에 하나의 코루틴만 코드 블록을 실행할 수 있도록 하는 동기화 메커니즘도 제공
+- 코틀린 뮤텍스(mutex)의 가장 중요한 특징은 블록되지 않는다는 점
+- 실행 대기 중인 코루틴은 잠금을 획득하고 코드 블록을 실행할 수 있을 때까지 일시 중단된다.
+- 코루틴은 일시 중단되지만 일시 중단 함수를 사용하지 않고 뮤텍스를 잠글 수 있다.
+- 뮤텍스를 자바에 비유하면 넌 블로킹, synchronized
+
+## 뮤텍스 생성
+
+```kotlin
+fun main() {
+    var mutex = Mutex()
+
+    runBlocking {
+        fun asyncIncrement(by: Int) = async {
+            for (i in 0 until by) {
+                mutex.withLock {
+                    counter++
+                }
+            }
+        }
+        asyncIncrement(2000).await()
+        asyncIncrement(2000).await()
+
+        log("counter $counter")
+    }
+}
+/*
+23:59:49.585:Thread[DefaultDispatcher-worker-3,5,main]: thread
+23:59:49.585:Thread[DefaultDispatcher-worker-1,5,main]: thread
+23:59:49.617:Thread[DefaultDispatcher-worker-3,5,main]: before
+23:59:49.617:Thread[DefaultDispatcher-worker-1,5,main]: before
+23:59:49.617:Thread[DefaultDispatcher-worker-3,5,main]: counter
+23:59:49.623:Thread[DefaultDispatcher-worker-3,5,main]: after
+23:59:49.623:Thread[DefaultDispatcher-worker-3,5,main]: before
+23:59:49.624:Thread[DefaultDispatcher-worker-1,5,main]: counter
+23:59:49.624:Thread[DefaultDispatcher-worker-1,5,main]: after
+23:59:49.624:Thread[DefaultDispatcher-worker-1,5,main]: before
+ */
+```
+- 한 번에 하나의 코루틴만 잠금을 보유하고, 잠금을 시도하는 다른 코루틴을 일시 중단 함으로써 카운터에 대한 모든 증분이 동기화 됨
+
+## 상호 배제와 상호 작용
