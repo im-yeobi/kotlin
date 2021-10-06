@@ -4,6 +4,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -24,9 +25,9 @@ class Week07_jongyeob {
                 val kakaoBankTransaction = producer.receive()
 
                 transactions = listOfNotNull(
-                    tossbankTransaction,
-                    wooriBankTransaction,
-                    kakaoBankTransaction
+                    tossbankTransaction.await(),
+                    wooriBankTransaction.await(),
+                    kakaoBankTransaction.await()
                 )
 
                 println()
@@ -37,7 +38,10 @@ class Week07_jongyeob {
     private fun getProducer() =
         GlobalScope.produce(Dispatchers.IO) {
             accounts.forEach {
-                send(getTransactionByAccount(it))
+                val transaction = async {
+                    getTransactionByAccount(it)
+                }
+                send(transaction)
             }
         }
 
