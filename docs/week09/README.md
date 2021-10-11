@@ -109,5 +109,177 @@ Finishing 0 in myPool-1 @main#1
 
 ## 과제 설명
 
+## 09. 코틀린의 동시성 내부
+Continuation Passing Style(연속체 전달 스타일) : 함수가 값을 반환하지 않는 프로그래밍 스타일이다.
 
-## 09. 
+### 연속체
+Direct Style
+~~~
+fun postItem(item: Item) {
+    val token = requestToken()
+  
+    // Continuation
+    val post = createPost(token, item);
+    processPost(post)
+}
+~~~
+위 함수의 경우 requestToken을 실행하게 되면, 이 부분을 콜스택에 두고 requestToken을 실행한 뒤 그 반환값을 가지고 
+다시 createPost를 실행하고, 이때 이는 콜스택에 적재된뒤, createPost실행완료후 이 값으로 processPost를 실행하게 된다.
+
+Continuation Passing Style
+~~~
+fun postItem(item: Item) {
+    requestToken { token ->
+        // Continuation
+        createPost(token, item) { post ->
+            processPost(post)
+        }   
+    }
+}
+~~~
+이를 콜백형태로 적어보면 위와 같다. 
+
+코루틴에서는 위처럼 direct style로 적어도 아래처럼 바꿔준다. 이는 `Continuation`을 통해 가능하다
+~~~
+public interface Continuation<in T> {
+    public val context : CoroutineContext
+    public fun resume(value: T)
+    public fun resumeWithException(exception: Throwable)
+}
+~~~
+
+- context: 실행되는 context의 정보
+- resume: 일시 중단을 일으킨 작업의 결과 
+
+#### suspend
+주어진 범위의 코드가 연속체를 사용하여 동작하도록 컴파일러에게 지시한다.
+
+~~~
+suspend fun getUserSumary(id: Int) : UserSummary {
+    println("fetching summary of $id")
+    val profile = fetchProfile(id) // suspending fun
+    val age = calculateAge(profile.dateOfBirth)
+    val terms = validateTerms(profile.country, age) // suspending fun
+    return UserSummary(profile, age, terms)
+}
+~~~
+
+1. 함수 실행
+2. 로그 출력
+3. fetchProfile 호출. 이때 위 함수는 일시중지됨
+4. fetchProfile 종료후 age 계산
+5. validateTerms 호출. 이때 위 함수는 중지됨
+6. UserSummary 반환
+
+이를 쉽게 표현하면 다음과 같이 구분할 수 있다 
+
+~~~
+suspend fun getUserSumary(id: Int) : UserSummary {
+    // label 0 
+    println("fetching summary of $id")
+    val profile = fetchProfile(id) // suspending fun
+    // label 1 
+    val age = calculateAge(profile.dateOfBirth)
+    val terms = validateTerms(profile.country, age) // suspending fun
+    // label 2
+    return UserSummary(profile, age, terms)
+}
+~~~
+
+~~~
+when(label) {
+    0 -> {
+        println("fetching summary of $id")
+        fetchProfile(id)
+        return
+    }
+    1 -> {
+        calculateAge(profile.dateOfBirth)
+        validateTerms(profile.country, age) // suspending fun
+        return
+    }
+    2 -> {
+        UserSummary(profile, age, terms)
+    }
+~~~
+
+이제 위 함수를 타기 위한 부분이 있어야한다.
+~~~
+suspend fun getUserSumary(id: Int) : UserSummary {
+    val sm = object : CoroutineImpl {
+    override fun doResume(data: Any?, exception: Throwable?) {
+        // doResume이 불리면 가지고 있는 label에 따라 어딜 실행할지를 알 수 있다. 
+        getUserSummary(id, this)
+    }
+    
+    val state = sm as CoroutineImpl
+    when(state.label) {
+        0 -> {
+            println("fetching summary of $id")
+            sm.label = 1 // 라벨 증가
+            fetchProfile(id, sm)
+            return
+        }
+        1 -> {
+            calculateAge(profile.dateOfBirth)
+            sm.label = 2// 라벨 증가
+            validateTerms(profile.country, age, sm) // suspending fun
+            return
+        }
+        2 -> {
+            UserSummary(profile, age, terms)
+        }
+    }
+}
+~~~
+아래와 같이 구조 변경 
+~~~
+private class GetUserSummarySM: CoroutineImpl {
+    var value: Any? = null
+    var exception: Throwable? = null, 
+    var cont: continuation<Any?>? = null, 
+    val id: Int? = null
+    var profile: Profile? = null, 
+    var age: Int? = null,
+    var terms: Terms? = null
+
+    override fun doResume(data: Any?, exception: Throwable?) {
+        this.value = data, 
+        this.exception = exception
+        getUserSummary(id, this)
+    }
+}
+
+fun getUserSummary(id : Long, cont : Continuation<Any?>){
+    val sm = cont as? GetUserSummarySm ?: GetUserSummarySm()
+    when(state.label) {
+        0 -> {
+            sm.cont = cont
+            println("fetching summary of $id")
+            sm.label = 1 // 라벨 증가
+            fetchProfile(id, sm)
+            return
+        }
+        1 -> {
+            sm.profile = sm.value as Profile
+            sm.age = calculateAge(sm.profile!!.dateOfBirth)
+            sm.label = 2// 라벨 증가
+            validateTerms(sm.profile!!.country, sm.age!!, sm) // suspending fun
+            return
+        }
+        2 -> {
+            sm.terms = sm.value as Terms
+            //UserSummary(sm.profile!!, sm.age!!, sm.terms!!)
+            sm,cont!!.resume(UserSummary(sm.profile!!, sm.age!!, sm.terms!!))
+        }
+    }
+}
+~~~
+
+
+### 컨텍스트 전환
+ContinuationInterceptor 
+
+
+
+https://www.slipp.net/wiki/pages/viewpage.action?pageId=52527388
