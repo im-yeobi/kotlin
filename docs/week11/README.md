@@ -434,3 +434,9 @@ internal class ThreadLocalElement<T>(
 
 - coroutine이 resume 됬을 때 updateThreadContext를 통해서 ThreadLocal로 부터 값을 셋팅
 - 해당 block()이 종료된 이후에는 restoreThreadContext를 통해서 기존 oldValue를 ThreadLocal에 다시 셋팅
+
+# 과제
+- `ThreadLocal`에 값을 할당해서, coroutine 내부에서 값이 잘 나오는지, coroutine 종료 후 원래 값이 잘 나오는지 확인
+- case1: runBlocking에 launch, async
+- case2: runBlocking에 suspend를 사용한 withContext를 통해서 다른 CoroutineContext에서 잘 나오는지 확인
+- case3: coroutineScope를 활용해서 같은 Dispatchers에서도 잘 나오는지 확인
