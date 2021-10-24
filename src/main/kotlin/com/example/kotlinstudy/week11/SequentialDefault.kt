@@ -19,7 +19,7 @@ suspend fun doSomethingUsefulTwo(): Int {
 fun main() = runBlocking {
     val time = measureTimeMillis {
         log("one before")
-        val one = async {
+        val one = async() {
             doSomethingUsefulOne()
         }
         log("one complete")
@@ -29,5 +29,5 @@ fun main() = runBlocking {
         log("two complete")
         log("The answer is ${one.await() + two.await()}")
     }
-    log("Completed in $time ms")
+    log("Completed in $time xms")
 }
