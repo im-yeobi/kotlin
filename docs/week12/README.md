@@ -513,12 +513,154 @@ val startTime = System.currentTimeMillis() // remember the start time
 ~~~
 
 ## Flow exceptions
+~~~
+fun simple(): Flow<Int> = flow {
+    for (i in 1..3) {
+        println("Emitting $i")
+        emit(i) // emit next value
+    }
+}
 
+fun main() = runBlocking<Unit> {
+    try {
+        simple().collect { value ->         
+            println(value)
+            check(value <= 1) { "Collected $value" }
+        }
+    } catch (e: Throwable) {
+        println("Caught $e")
+    } 
+}            	
+~~~
+~~~			    
+Emitting 1
+1
+Emitting 2
+2
+Caught java.lang.IllegalStateException: Collected 2			    
+~~~
+
+			    
+~~~
+fun simple(): Flow<String> = 
+    flow {
+        for (i in 1..3) {
+            println("Emitting $i")
+            emit(i) // emit next value
+        }
+    }
+    .map { value ->
+        check(value <= 1) { "Crashed on $value" }                 
+        "string $value"
+    }
+
+fun main() = runBlocking<Unit> {
+    try {
+        simple().collect { value -> println(value) }
+    } catch (e: Throwable) {
+        println("Caught $e")
+    } 
+}            			    
+~~~			    
+			    
+~~~
+Emitting 1
+string 1
+Emitting 2
+Caught java.lang.IllegalStateException: Crashed on 2	
+~~~	
+	
+~~~
+fun simple(): Flow<Int> = flow {
+    for (i in 1..3) {
+        println("Emitting $i")
+        emit(i)
+    }
+}
+
+fun main() = runBlocking<Unit> {
+    simple()
+        .catch { e -> println("Caught $e") } // does not catch downstream exceptions
+        .collect { value ->
+            check(value <= 1) { "Collected $value" }                 
+            println(value) 
+        }
+}      	
+~~~
+~~~			    
+simple()
+    .onEach { value ->
+        check(value <= 1) { "Collected $value" }                 
+        println(value) 
+    }
+    .catch { e -> println("Caught $e") }
+    .collect()
+~~~
+	
+	
 ## Flow completion
+~~~
+fun simple(): Flow<Int> = (1..3).asFlow()
+
+fun main() = runBlocking<Unit> {
+    try {
+        simple().collect { value -> println(value) }
+    } finally {
+        println("Done")
+    }
+} 	
+~~~
+~~~	
+fun simple(): Flow<Int> = (1..3).asFlow()
+
+fun main() = runBlocking<Unit> {
+    try {
+        simple().collect { value -> println(value) }
+    } finally {
+        println("Done")
+    }
+} 	
+~~~
+~~~	
+fun simple(): Flow<Int> = (1..3).asFlow()
+
+fun main() = runBlocking<Unit> {
+    simple()
+        .onCompletion { cause -> println("Flow completed with $cause") }
+        .collect { value ->
+            check(value <= 1) { "Collected $value" }                 
+            println(value) 
+        }
+}	
+~~~
+~~~
+1
+Flow completed with java.lang.IllegalStateException: Collected 2
+Exception in thread "main" java.lang.IllegalStateException: Collected 2			    
+~~~	
+downstream flow에도 영향을 받는다 
 
 ## Launching flow
+~~~
+// Imitate a flow of events
+fun events(): Flow<Int> = (1..3).asFlow().onEach { delay(100) }
 
-
+fun main() = runBlocking<Unit> {
+    events()
+        .onEach { event -> println("Event: $event") }
+        .collect() // <--- Collecting the flow waits
+    println("Done")
+}            
+~~~			   
+~~~
+Event: 1
+Event: 2
+Event: 3
+Done
+~~~			   
+			   
+			   
+			   
 # Channels
 지연된 값은 코루틴 간에 단일 값을 전송하는 편리한 방법을 제공한다. 채널은 값 스트림을 전송하는 방법을 제공한#.
 
