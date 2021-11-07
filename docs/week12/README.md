@@ -696,7 +696,245 @@ Queue와 다르게, channel은 더이상 값이 오지 않는것을 표현하기
 
 ## Building channel producers
 코루틴이 element sequence를 생성하는 것은 일반적이다. producer-consumer pattern은 동시성 코드에서 많이 사용된다.
+producer라는 코루틴패턴을 이용해서 코루틴을 만들거나 for 루프를 대체하는 foreach를 사용할 수 있다
+~~~kotlin
+val squares = produceSquares()
+squares.consumeEach { println(it) }
+println("Done!")
+~~~ 
 
 
 ## Pipelines
+파이프라인은 하나의 코루틴이 아마도 무한한 값의 스트림을 생성하는 패턴이다. 예를 들어 아래와 같은 producer가 있다고 하자. 
 
+~~~kotlin 
+fun CoroutineScope.produceNumbers() = produce<Int> {
+    var x = 1
+    while (true) send(x++) // infinite stream of integers starting from 1
+}
+~~~
+
+~~~
+fun CoroutineScope.square(numbers: ReceiveChannel<Int>): ReceiveChannel<Int> = produce {
+    for (x in numbers) send(x * x)
+}
+~~~
+이를 받아서 어떤 프로세싱을 거치고 다시 재 produce 하는 스트림도 있다. 위 예제는 스트림을 받아서 제곱을 하고 다시 produce를 하고 있다. 
+이 둘을 합치면 
+
+~~~
+val numbers = produceNumbers() // produces integers from 1 and on
+val squares = square(numbers) // squares integers
+repeat(5) {
+    println(squares.receive()) // print first five
+}
+println("Done!") // we are done
+coroutineContext.cancelChildren() // cancel children coroutines
+~~~
+
+
+## Prime numbers with pipeline
+코루틴의 파이프라인을 이용해 소수를 만드는 예제를 보자 
+~~~
+fun CoroutineScope.numbersFrom(start: Int) = produce<Int> {
+    var x = start
+    while (true) send(x++) // infinite stream of integers from start
+}
+~~~
+~~~
+fun CoroutineScope.filter(numbers: ReceiveChannel<Int>, prime: Int) = produce<Int> {
+    for (x in numbers) if (x % prime != 0) send(x)
+}
+~~~
+~~~
+var cur = numbersFrom(2)
+repeat(10) {
+    val prime = cur.receive()
+    println(prime)
+    cur = filter(cur, prime)
+}
+coroutineContext.cancelChildren() // cancel all children to let main finish
+~~~
+이중 소수 10개만 출력할려면 그 뒤에 cancelChildren을 통해 그 이후의 작업을 취소할 수 있다. 
+
+물론 이 작업을 기본 코루틴 빌더를 이용해서도 만들 수 있다. producer를 iterator로 변경하고 yield로 send하고 next로 받을 수 있다.
+그러나 위와 같이 채널을 사용하는 파이프라인의 이점은 Dispatchers.Default 컨텍스트에서 실행하면 실제로 여러 CPU 코어를 사용할 수 있다는 것이다.
+produce를 사용하기 때문에 함수 실행이 끝날때까지 block되는게 아니라 결과값이 만들어질때마다 async하게 channel로 보내지게 되며 consumer 쪽에서 지정된 개수를 받을 띠까지 대기한다. 
+
+어쨌든 이것은 소수를 찾는 매우 비효율적인 방법이다. 
+실제로 파이프라인은 다른 외부 서비스로 asynchronous하게 call을 하는 등의 suspend function이 필요한 경우가 많다. 
+이러한 파이프라인은 시퀀스/반복자를 사용하여 빌드할 수 없다. 
+왜냐하면 완전히 비동기식인 생산과 달리 임의의 일시 중단을 허용하지 않기 때문이다. 
+
+## Fan-out
+많은 코루틴들이 하나의 채널에서 값을 컨슘해서 분산적으로 실행하고자 하는 니즈가 있을 수도 있다. 
+~~~
+fun CoroutineScope.produceNumbers() = produce<Int> {
+    var x = 1 // start from 1
+    while (true) {
+        send(x++) // produce next
+        delay(100) // wait 0.1s
+    }
+}
+~~~
+(1초에 숫자를 10개 보낸다)
+이를 받는 아래와 같은 함수가 있다고 하자(그냥 프린트만함)
+~~~
+fun CoroutineScope.launchProcessor(id: Int, channel: ReceiveChannel<Int>) = launch {
+    for (msg in channel) {
+        println("Processor #$id received $msg")
+    }
+}
+~~~
+그리고 아래와 같은 main 함수가 있다고 하자 .
+~~~
+val producer = produceNumbers()
+repeat(5) { launchProcessor(it, producer) }
+delay(950)
+producer.cancel() // cancel producer coroutine and thus kill them all
+~~~
+output
+~~~
+Processor #2 received 1
+Processor #4 received 2
+Processor #0 received 3
+Processor #1 received 4
+Processor #3 received 5
+Processor #2 received 6
+Processor #4 received 7
+Processor #0 received 8
+Processor #1 received 9
+Processor #3 received 10
+~~~
+결과 해석 : launchProcessor의 경우 channel을 받아와서 channel의 이미지를 for 루프로 찍어낸다. 채널은 1개
+그리고 이것이 repeat(5)로 인해 5개의 코루틴이 존재하게 됨. 
+하나 프린트하고 100를 쉰다. 
+950을 쉬므로 10개의 숫자를 찍을 수 있음. 
+
+또한, launchProcessor 코드에서 팬아웃을 수행하기 위해 for 루프를 사용하여 채널을 명시적으로 반복한다
+ConsumerEach와 달리 이 for 루프 패턴은 여러 코루틴에서 사용하기에 완벽하게 safe하다. 
+프로세서 코루틴 중 하나가 실패하면 다른 코루틴은 여전히 채널을 처리하는 반면,  consumerEach를 통해 작성된 프로세서는 
+정상 또는 비정상 완료 시 항상 기본 채널을 소비(취소)합니다. 
+
+
+## Fan-in 
+여러개의 채널이 하나의 코루틴에 데이터를 보낼때도 있다. 
+~~~
+suspend fun sendString(channel: SendChannel<String>, s: String, time: Long) {
+    while (true) {
+        delay(time)
+        channel.send(s)
+    }
+}
+~~~
+
+~~~
+val channel = Channel<String>()
+launch { sendString(channel, "foo", 200L) }
+launch { sendString(channel, "BAR!", 500L) }
+repeat(6) { // receive first six
+    println(channel.receive())
+}
+coroutineContext.cancelChildren() // cancel all children to let main finish
+~~~
+
+~~~
+foo
+foo
+BAR!
+foo
+foo
+BAR!
+Copied!
+~~~
+이럴경우 output 
+
+## Buffered channels
+지금까지의 non-buffered 채널은 send가 먼저 호출되면 receive가 호출될 때까지 일시중단되고, receive가 먼저 호출되면 send가 호출될 때까지 일시중단된다. 
+buffered channel은 capacity가 있어서 full되면 비워질때까지 suspend된다. 
+
+~~~
+val channel = Channel<Int>(4) // create buffered channel
+val sender = launch { // launch sender coroutine
+    repeat(10) {
+        println("Sending $it") // print before sending each element
+        channel.send(it) // will suspend when buffer is full
+    }
+}
+// don't receive anything... just wait....
+delay(1000)
+sender.cancel() // cancel sender coroutine
+~~~
+~~~
+Sending 0
+Sending 1
+Sending 2
+Sending 3
+Sending 4
+~~~
+버퍼 사이즈가 4인 채널에다가 10만큼을 넣었다. recevie가 불리지 않았으므로 5번째를 넣는다고 한뒤에 send가 보내지지 않는다. (receive가 없으므로)
+
+
+## Channels are fair
+보내고 받는 것은 공평하다. 먼저 보내진 것을 먼저 받게 된다. 
+~~~
+data class Ball(var hits: Int)
+
+fun main() = runBlocking {
+    val table = Channel<Ball>() // a shared table
+    launch { player("ping", table) }
+    launch { player("pong", table) }
+    table.send(Ball(0)) // serve the ball
+    delay(1000) // delay 1 second
+    coroutineContext.cancelChildren() // game over, cancel them
+}
+
+suspend fun player(name: String, table: Channel<Ball>) {
+    for (ball in table) { // receive the ball in a loop
+        ball.hits++
+        println("$name $ball")
+        delay(300) // wait a bit
+        table.send(ball) // send the ball back
+    }
+}
+~~~
+
+
+## Ticker channels
+Unit을 return하는 특별한 channel. 쓸모없어보이지만 time-based producer에게는 유의미하다. 
+~~~
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.*
+
+fun main() = runBlocking<Unit> {
+    val tickerChannel = ticker(delayMillis = 100, initialDelayMillis = 0) // create ticker channel
+    var nextElement = withTimeoutOrNull(1) { tickerChannel.receive() }
+    println("Initial element is available immediately: $nextElement") // no initial delay
+
+    nextElement = withTimeoutOrNull(50) { tickerChannel.receive() } // all subsequent elements have 100ms delay
+    println("Next element is not ready in 50 ms: $nextElement")
+
+    nextElement = withTimeoutOrNull(60) { tickerChannel.receive() }
+    println("Next element is ready in 100 ms: $nextElement")
+
+    // Emulate large consumption delays
+    println("Consumer pauses for 150ms")
+    delay(150)
+    // Next element is available immediately
+    nextElement = withTimeoutOrNull(1) { tickerChannel.receive() }
+    println("Next element is available immediately after large consumer delay: $nextElement")
+    // Note that the pause between `receive` calls is taken into account and next element arrives faster
+    nextElement = withTimeoutOrNull(60) { tickerChannel.receive() }
+    println("Next element is ready in 50ms after consumer pause in 150ms: $nextElement")
+
+    tickerChannel.cancel() // indicate that no more elements are needed
+}
+~~~
+~~~
+Initial element is available immediately: kotlin.Unit
+Next element is not ready in 50 ms: null
+Next element is ready in 100 ms: kotlin.Unit
+Consumer pauses for 150ms
+Next element is available immediately after large consumer delay: kotlin.Unit
+Next element is ready in 50ms after consumer pause in 150ms: kotlin.Unit
+~~~
