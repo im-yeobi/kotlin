@@ -71,7 +71,7 @@ fun main() = runBlocking {
       throw ArithmeticException() // CoroutineExceptionHandler 호출되지 않음
     }
     joinAll(job, deferred)
-  }
+}
 ```
 
 - 결과
@@ -89,26 +89,26 @@ CoroutineExceptionHandler got java.lang.AssertionError
 
 ```kotlin
 fun main() = runBlocking {
-  val job = launch {  // 부모 코루틴
-    val child = launch {  // 자식 코루틴
-      try {
-        delay(Long.MAX_VALUE)
-      } catch (e: CancellationException) {
-        println("Catch CancellationException")
-      } finally {
-        println("Child is cancelled")
-      }
+    val job = launch {  // 부모 코루틴
+        val child = launch {  // 자식 코루틴
+            try {
+                delay(Long.MAX_VALUE)
+            } catch (e: CancellationException) {
+                println("Catch CancellationException")
+            } finally {
+                println("Child is cancelled")
+            }
+        }
+        yield() // 일시정지
+        println("Cancelling child")
+        child.cancel()  // 자식 코루틴 취소
+        child.join() // 자식 코루틴 종료 대기
+
+        yield() // 일시정지
+        println("Parent is not cancelled")
     }
-    yield() // 일시정지
-    println("Cancelling child")
-    child.cancel()  // 자식 코루틴 취소
-    child.join() // 자식 코루틴 종료 대기
 
-    yield() // 일시정지
-    println("Parent is not cancelled")
-  }
-
-  job.join()  // 부모 코루틴 종료 대기
+    job.join()  // 부모 코루틴 종료 대기
 }
 ```
 
@@ -205,32 +205,35 @@ CoroutineExceptionHandler got java.io.IOException
 ```
 
 - `Cancellation exceptions` are transparent and are unwrapped by default
-  @OptIn(DelicateCoroutinesApi::class)
-  fun main() = runBlocking {
-  val handler = CoroutineExceptionHandler { _, exception ->
-  println("CoroutineExceptionHandler got $exception")
-  }
+```kotlin
+@OptIn(DelicateCoroutinesApi::class)
+fun main() = runBlocking {
+    val handler = CoroutineExceptionHandler { _, exception ->
+        println("CoroutineExceptionHandler got $exception")
+    }
 
-  val job = GlobalScope.launch(handler) {  // 부모 코루틴
-  val inner = launch {  // depth 1 자식 코루틴
-  launch {  // depth 2 자식 코루틴
-  throw IOException() // original 예외
-  }
-  }
-  try {
-  inner.join()  // job 종료 대기
-  } catch (e: CancellationException) {
-  println("Rethrowing CancellationException with original cause")
-  // cancellation exception is rethrown
-  // yet the original IOException gets to the handler
-  throw e
-  }
-  }
+    val job = GlobalScope.launch(handler) {  // 부모 코루틴
+        val inner = launch {  // depth 1 자식 코루틴
+            launch {  // depth 2 자식 코루틴
+                throw IOException() // original 예외
+            }
+        }
+        try {
+            inner.join()  // job 종료 대기
+        } catch (e: CancellationException) {
+            println("Rethrowing CancellationException with original cause")
+            // cancellation exception is rethrown
+            // yet the original IOException gets to the handler
+            throw e
+        }
+    }
 
-  job.join()
-  }
+    job.join()
+}
+```
 
 - 결과
+
 ```text
 Rethrowing CancellationException with original cause
 CoroutineExceptionHandler got java.io.IOException
@@ -293,25 +296,25 @@ secondChild : 두 번째 자식 코루틴 취소 by supervisor cancellation
 
 ```kotlin
 fun main() = runBlocking {
-  try {
-    supervisorScope {
-      val child = launch {
-        try {
-          println("자식 코루틴 : 자식 코루틴 delay")
-          delay(Long.MAX_VALUE)
-        } finally {
-          // supervisor 예외에 의해 자식 코루틴 취소
-          println("자식 코루틴 : 자식 코루틴 취소")
-        }
-      }
+    try {
+        supervisorScope {
+            val child = launch {
+                try {
+                    println("자식 코루틴 : 자식 코루틴 delay")
+                    delay(Long.MAX_VALUE) 
+                } finally {
+                    // supervisor 예외에 의해 자식 코루틴 취소
+                    println("자식 코루틴 : 자식 코루틴 취소")
+                }
+            }
 
-      yield()
-      println("supervisor : supervisor 스코프에서 예외 발생")
-      throw AssertionError()
+            yield()
+            println("supervisor : supervisor 스코프에서 예외 발생")
+            throw AssertionError()
+        }
+    } catch (e: AssertionError) {
+        println("catch AssertionError")
     }
-  } catch (e: AssertionError) {
-    println("catch AssertionError")
-  }
 }
 ```
 
