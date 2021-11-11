@@ -566,3 +566,44 @@ public suspend inline fun <T> Mutex.withLock(owner: Any? = null, action: () -> T
 ### Actors
 - 액터는 코루틴과 이 코루틴 내부로 `캡슐화된 상태 값`, 그리고 다른 코루틴과 통신할 수 있는 `채널`의 조합으로 구성된다.
 - 간단한 액터는 함수로 작성될 수 있지만, 복잡한 경우 클래스로 정의하는 게 낫다.
+- 액터 자체가 어떤 컨텍스트에서 실행되는지는 중요하지 않다. 액터는 코루틴이고 코루틴은 순차적으로 실행되기 때문에 특정변경 가능한 공유 상태 문제에 대한 솔루션으로 동작한다.
+- 액터는 잠금보다 효율적이다. 일시정지 되면서 다른 코루틴이 계속 동작하고, 다른 컨텍스트로 전환이 없기 때문.
+
+```kotlin
+sealed class CounterMessage
+object IncreaseCounter: CounterMessage()
+class GetCounter(val response: CompletableDeferred<Int>) : CounterMessage()
+
+@ObsoleteCoroutinesApi
+fun CoroutineScope.counterActor() = actor<CounterMessage> {
+    var counter = 0
+    for (message in channel) {
+        when (message) {
+            is IncreaseCounter -> counter++
+            is GetCounter -> message.response.complete(counter)
+        }
+    }
+}
+
+@ObsoleteCoroutinesApi
+fun main() = runBlocking<Unit> {
+    val counter = counterActor()  // 액터 생성
+    withContext(Dispatchers.Default) {
+        massiveRun {  // 람다식
+            counter.send(IncreaseCounter)
+        }
+    }
+    val response = CompletableDeferred<Int>()
+    counter.send(GetCounter(response))
+    println("Counter = ${response.await()}")
+    counter.close()
+}
+```
+
+## 과제
+- 순착순 이벤트 : 100개로 제한된 티케팅을 한다. 한 번에 하나씩만 티켓을 구매할 수 있다. 
+```text
+ticketingLimit : 100
+- 티케팅은 코루틴을 이용해 동시 처리
+- 100개가 모두 티케팅 되면 구매하려고 할 때 Exception 전파되어서 종료된다.
+```
